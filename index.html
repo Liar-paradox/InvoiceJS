@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+    <body>
+        <div id="app" class="l_a">
+            <input type="file" @change="onPdf" /><br>
+            <canvas ref="pdfViewer"></canvas>
+        </div>
+        <form>
+            <div class="r_f">
+            <fieldset>
+                <legend>Wprowadz dane</legend><br>
+                <label for="name">Name</label><br>
+                <input type="text" id="name" name="name"><br>
+                <label for="invoice_number">Invoice number</label><br>
+                <input type="text" id="invoice_number" name="invoice_number"><br>
+                <label for="date">Date</label><br>
+                <input type="date" id="date" name="date">
+                <input type="button" value="Save Results" onclick="saveFile()">
+            </fieldset>
+        </div>
+        </form>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+        <script src="https://mozilla.github.io/pdf.js/build/pdf.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.11/vue.min.js"></script>
+        <script>
+            new Vue({
+                mounted(){
+                    // Loaded via <script> tag, create shortcut to access PDF.js exports.
+                    var pdfjsLib = window['pdfjs-dist/build/pdf'];
+                    // The workerSrc property shall be specified.
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://mozilla.github.io/pdf.js/build/pdf.worker.js';
+                },
+                methods:{
+                    onPdf(e){
+                    var file = e.target.files[0],
+                        vm = this
+                    if(file.type == "application/pdf"){
+                        var fileReader = new FileReader();  
+                        fileReader.onload = function() {
+                        var pdfData = new Uint8Array(this.result);
+                        // Using DocumentInitParameters object to load binary data.
+                        var loadingTask = pdfjsLib.getDocument({data: pdfData});
+                        loadingTask.promise.then(function(pdf) {
+                            console.log('PDF loaded');
+                            
+                            // Fetch the first page
+                            var pageNumber = 1;
+                            pdf.getPage(pageNumber).then(function(page) {
+                            console.log('Page loaded');
+                            
+                            var scale = 1.5;
+                            var viewport = page.getViewport({scale: scale});
+                            
+                            // Prepare canvas using PDF page dimensions
+                            var canvas = vm.$refs.pdfViewer;
+                            var context = canvas.getContext('2d');
+                            canvas.height = viewport.height;
+                            canvas.width = viewport.width;
+                            
+                            // Render PDF page into canvas context
+                            var renderContext = {
+                                canvasContext: context,
+                                viewport: viewport
+                            };
+                            var renderTask = page.render(renderContext);
+                            renderTask.promise.then(function () {
+                                console.log('Page rendered');
+                            });
+                            });
+                        }, function (reason) {
+                            // PDF loading error
+                            console.error(reason);
+                        });
+                        };
+                        fileReader.readAsArrayBuffer(file);
+                    }
+                    }
+                }
+                }).$mount('#app')
+        </script>
+        <script>
+            let saveFile = () => {
+                // Get the data from each element on the form.
+                const name_txt = document.getElementById('name');
+                const invoice_nr_txt = document.getElementById('invoice_number');
+                const date_txt = document.getElementById('date');
+                
+                // This variable stores all the data.
+                let data = 
+                    '\r Name: ' + name_txt.value + ' \r\n ' + 
+                    'Invoice_Number: ' +invoice_nr_txt.value + ' \r\n ' + 
+                    'Date: ' + date_txt.value;
+                
+                // Convert the text to BLOB.
+                const textToBLOB = new Blob([data], { type: 'text/plain' });
+                const sFileName = 'formData.txt';	   // The file to save the data.
+
+                let newLink = document.createElement("a");
+                newLink.download = sFileName;
+
+                if (window.webkitURL != null) {
+                    newLink.href = window.webkitURL.createObjectURL(textToBLOB);
+                }
+                else {
+                    newLink.href = window.URL.createObjectURL(textToBLOB);
+                    newLink.style.display = "none";
+                    document.body.appendChild(newLink);
+                }
+
+                newLink.click(); 
+            }
+        </script>
+    </body>
+</html>
+
+
+<style>
+.r_f {
+    float: right;
+    width: 300px;
+    padding: 10px;
+}
+
+.l_a{
+    float: left;
+    width: 600;
+}
+</style>
